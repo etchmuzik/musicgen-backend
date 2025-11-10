@@ -24,11 +24,18 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Supabase client
-const supabase: SupabaseClient = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
-);
+// Supabase client - support both naming conventions
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Missing Supabase credentials');
+  console.error('Required: SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL');
+  console.error('Required: SUPABASE_SERVICE_KEY or SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  process.exit(1);
+}
+
+const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
 
 // Extended Request type with user
 interface AuthRequest extends Request {
@@ -83,7 +90,7 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    supabase: !!process.env.SUPABASE_URL,
+    supabase: !!supabaseUrl,
     sunoApi: !!process.env.SUNO_API_KEY,
     environment: process.env.NODE_ENV
   });
@@ -158,8 +165,9 @@ app.post('/api/generate-music', authenticateUser, async (req: AuthRequest, res: 
     console.log('📡 Calling Suno API:', { genre, mood, instrumental: isInstrumental });
 
     // Call Suno API
+    const sunoBaseUrl = process.env.SUNO_BASE_URL || process.env.SUNO_API_BASE_URL;
     const sunoApiResponse = await axios.post(
-      `${process.env.SUNO_BASE_URL}/api/v1/generate`,
+      `${sunoBaseUrl}/api/v1/generate`,
       {
         customMode: true,
         instrumental: isInstrumental,
@@ -222,8 +230,9 @@ app.get('/api/task/:taskId', authenticateUser, async (req: AuthRequest, res: Res
 
     console.log('📊 Checking task status:', taskId);
 
+    const sunoBaseUrl = process.env.SUNO_BASE_URL || process.env.SUNO_API_BASE_URL;
     const response = await axios.get(
-      `${process.env.SUNO_BASE_URL}/api/v1/generate/record-info?taskId=${taskId}`,
+      `${sunoBaseUrl}/api/v1/generate/record-info?taskId=${taskId}`,
       {
         headers: { 'Authorization': `Bearer ${process.env.SUNO_API_KEY}` },
         timeout: 10000
@@ -500,8 +509,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 app.listen(PORT, () => {
   console.log(`🚀 MusicGen API server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
-  console.log(`🔗 Supabase: ${process.env.SUPABASE_URL}`);
-  console.log(`🎵 Suno API: ${process.env.SUNO_BASE_URL}`);
+  console.log(`🔗 Supabase: ${supabaseUrl}`);
+  console.log(`🎵 Suno API: ${process.env.SUNO_BASE_URL || process.env.SUNO_API_BASE_URL}`);
   console.log(`✅ Server ready to accept requests`);
 });
 
