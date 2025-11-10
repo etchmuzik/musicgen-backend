@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install ALL dependencies (including devDependencies for TypeScript)
-RUN npm ci
+# Force npm to ignore NODE_ENV and install everything
+RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
